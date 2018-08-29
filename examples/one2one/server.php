@@ -41,7 +41,7 @@ class CallHandler extends WebSocketUriHandler {
      * @var \MgKurentoClient\Interfaces\MediaPipeline
      */
     protected $pipeline = null;
-    protected $wsUrl = 'ws://127.0.0.1:8888/kurento';
+    protected $wsUrl = 'wss://127.0.0.1:8888/kurento';
     
     /**
      * 

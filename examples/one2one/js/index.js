@@ -13,7 +13,7 @@
  *
  */
 
-var ws = new WebSocket('ws://' + location.host + ':8080/call');
+var ws = new WebSocket('wss://' + location.host + ':8080/call');
 var videoInput;
 var videoOutput;
 var webRtcPeer;
