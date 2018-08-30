@@ -101,7 +101,7 @@ WebRtcPeer.prototype.start = function() {
 	var pc = this.pc;
 
 	if (this.stream && this.localVideo) {
-		this.localVideo.src = this.stream;
+		this.localVideo.srcObject = this.stream;
 		this.localVideo.muted = true;
 	}
 
@@ -214,19 +214,19 @@ WebRtcPeer.prototype.userMediaConstraints = {
  * 
  */
 WebRtcPeer.prototype.processSdpAnswer = function(sdpAnswer) {
-	var answer = new RTCSessionDescription({
-		type : 'answer',
-		sdp : sdpAnswer,
-	});
+        var answer = new RTCSessionDescription({
+                type : 'answer',
+                sdp : sdpAnswer,
+        });
 
-	console.log('SDP answer received, setting remote description');
-	var self = this;
-	self.pc.setRemoteDescription(answer, function() {
-		if (self.remoteVideo) {
-			var stream = self.pc.getRemoteStreams()[0];
-			self.remoteVideo.src = URL.createObjectURL(stream);
-		}
-	}, this.onerror);
+        console.log('SDP answer received, setting remote description');
+        var self = this;
+        self.pc.setRemoteDescription(answer, function() {
+                if (self.remoteVideo) {
+                        var stream = self.pc.getRemoteStreams()[0];
+                        self.remoteVideo.srcObject = self.stream;
+                }
+        }, this.onerror);
 }
 
 /**
