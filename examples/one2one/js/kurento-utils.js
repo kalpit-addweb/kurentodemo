@@ -101,7 +101,7 @@ WebRtcPeer.prototype.start = function() {
 	var pc = this.pc;
 
 	if (this.stream && this.localVideo) {
-		this.localVideo.src = URL.createObjectURL(this.stream);
+		this.localVideo.srcObject = this.stream;
 		this.localVideo.muted = true;
 	}
 
@@ -224,7 +224,7 @@ WebRtcPeer.prototype.processSdpAnswer = function(sdpAnswer) {
 	self.pc.setRemoteDescription(answer, function() {
 		if (self.remoteVideo) {
 			var stream = self.pc.getRemoteStreams()[0];
-			self.remoteVideo.src = URL.createObjectURL(stream);
+			self.remoteVideo.srcObject = stream;
 		}
 	}, this.onerror);
 }
@@ -296,7 +296,7 @@ WebRtcPeer.start = function(mode, localVideo, remoteVideo, onSdp, onerror,
 		var constraints = mediaConstraints ? mediaConstraints
 				: wp.userMediaConstraints;
 
-		getUserMedia(constraints, function(userStream) {
+		navigator.getUserMedia(constraints, function(userStream) {
 			wp.stream = userStream;
 			wp.start();
 		}, wp.onerror);
