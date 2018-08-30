@@ -101,7 +101,7 @@ WebRtcPeer.prototype.start = function() {
 	var pc = this.pc;
 
 	if (this.stream && this.localVideo) {
-		this.localVideo.src = this.stream;
+		this.localVideo.srcObject = this.stream;
 		this.localVideo.muted = true;
 	}
 
@@ -224,7 +224,7 @@ WebRtcPeer.prototype.processSdpAnswer = function(sdpAnswer) {
 	self.pc.setRemoteDescription(answer, function() {
 		if (self.remoteVideo) {
 			var stream = self.pc.getRemoteStreams()[0];
-			self.remoteVideo.src = URL.createObjectURL(stream);
+			self.remoteVideo.srcObject = stream;
 		}
 	}, this.onerror);
 }

@@ -16,6 +16,7 @@ use Devristo\Phpws\Messaging\WebSocketMessageInterface;
 use Devristo\Phpws\Protocol\WebSocketTransportInterface;
 use Devristo\Phpws\Server\IWebSocketServerObserver;
 use Devristo\Phpws\Server\UriHandler\WebSocketUriHandler;
+//use Devristo\Phpws\Server\WebSocketServer\UriHandler\WebSocketUriHandler;
 use Devristo\Phpws\Server\WebSocketServer;
 
 /**
@@ -41,7 +42,7 @@ class CallHandler extends WebSocketUriHandler {
      * @var \MgKurentoClient\Interfaces\MediaPipeline
      */
     protected $pipeline = null;
-    protected $wsUrl = 'ws://127.0.0.1:8888/kurento';
+    protected $wsUrl = 'ws://localhost:8888/kurento';
     
     /**
      * 
@@ -72,7 +73,7 @@ class CallHandler extends WebSocketUriHandler {
             "response"  => $response,
             "message"   => $message
         ), $params);
-        $session->sendString(json_encode($resultParams));        
+        $session->sendString(json_encode($resultParams, JSON_UNESCAPED_SLASHES));        
     }
 
     /**
@@ -102,7 +103,9 @@ class CallHandler extends WebSocketUriHandler {
                 break;
             case 'incomingCallResponse':
                 $this->incomingCallResponse($user, $message);
-                break;            
+                break;
+            case 'play':
+                $this->play($session, $message);
             case 'stop':
                 $this->stop($session);
                 break;
@@ -180,13 +183,15 @@ class CallHandler extends WebSocketUriHandler {
             $callee->setSdpOffer($message["sdpOffer"]);
 
             try {
-                $pipeline = new CallMediaPipeline($this->client, function($pipeline) use ($message, $callee, $caller) {
+                $pipeline = new CallMediaPipeline($this->client, $caller->getName(), $callee->getName(), function($pipeline) use ($message, $callee, $caller) {
                     $this->pipelines[$caller->getSession()->getId()] = $pipeline;
                     $this->pipelines[$callee->getSession()->getId()] = $pipeline;
                     
                     $pipeline->generateSdpAnswerForCallee($callee->getSdpOffer(), function ($success, $data) use($pipeline, $caller, $callee){
                         $calleeSdpAnswer = $data['value'];
-                        $pipeline->generateSdpAnswerForCaller($caller->getSdpOffer(), function ($success, $data) use ($calleeSdpAnswer, $caller, $callee){
+                        $pipeline->generateSdpAnswerForCaller($caller->getSdpOffer(), function ($success, $data) use ($pipeline, $calleeSdpAnswer, $caller, $callee){
+                            //start recoding imidiatelly
+                            $pipeline->record(function($success, $data){});
                             $callerSdpAnswer = $data['value'];
                             $this->sendResponse($callee->getSession(), 'startCommunication', '', '', array('sdpAnswer' => $calleeSdpAnswer));
                             $this->sendResponse($caller->getSession(), 'callResponse', 'accepted', '', array('sdpAnswer' => $callerSdpAnswer));                        
@@ -231,10 +236,26 @@ class CallHandler extends WebSocketUriHandler {
                 return $this->sendResponse($stoppedUser->getSession(), 'stopCommunication', "");
             }            
         }        
-    }    
+    }
+    
+    public function play(WebSocketTransportInterface $session, array $message){
+        $user = $message['user'];
+        $this->logger->notice("Playing recorded call of user $user");
+
+        $pipeline = new PlayMediaPipeline($this->client, $user, $session, function($pipeline) use ($message, $session){
+            $pipeline->generateSdpAnswer($message['sdpOffer'], function($success, $data) use ($session, $pipeline){
+                $sdpAnswer = $data['value'];
+                $this->sendResponse($session, 'playResponse', "accepted", '', array('sdpAnswer' => $sdpAnswer));
+                $pipeline->play(function($success, $data) {});                
+            });
+        });
+    }     
 }
 
 class CallMediaPipeline {
+    const RECORDING_PATH = "file:///tmp/";
+    const RECORDING_EXT = ".webm";
+    
     /**
      *
      * @var \MgKurentoClient\Interfaces\MediaPipeline 
@@ -251,44 +272,166 @@ class CallMediaPipeline {
      */
     protected $calleeWebRtcEP = null;
     
+    /**
+     *
+     * @var \MgKurentoClient\Interfaces\RecorderEndpoint 
+     */
+    protected $recorderCaller;
+    
+    /**
+     *
+     * @var \MgKurentoClient\Interfaces\RecorderEndpoint 
+     */    
+    protected $recorderCallee;
+    
+    protected $from = '';
+    protected $to;
     
     
-    public function __construct(\MgKurentoClient\KurentoClient $client, callable $callback) {
+    
+    public function __construct(\MgKurentoClient\KurentoClient $client, $from, $to, callable $callback) {
+        $this->from = $from;
+        $this->to = $to;
         try {
             $this->pipeline = $client->createMediaPipeline(function($pipeline, $success, $data) use ($callback){
                 $this->callerWebRtcEP = new \MgKurentoClient\WebRtcEndpoint($pipeline);
                 $this->callerWebRtcEP->build(function($webRtcEndpoint, $success, $data) use ($callback){
-                    
+
                     $this->calleeWebRtcEP = new \MgKurentoClient\WebRtcEndpoint($this->pipeline);
-                    $this->calleeWebRtcEP->build(function($webRtcEndpoint, $success, $data) use ($callback){
-                        $this->callerWebRtcEP->connect($this->calleeWebRtcEP, function($success, $data) use ($callback){
-                            $this->calleeWebRtcEP->connect($this->callerWebRtcEP, function($success, $data) use ($callback){
-                                $callback($this);
-                            });                            
-                        });                        
+                    $this->calleeWebRtcEP->build(function($webRtcEndpoint, $success, $data) use ($callback){                        
+                        //recorders
+                        $this->recorderCallee = new \MgKurentoClient\RecorderEndpoint($this->pipeline);
+                        $this->recorderCallee->build(function($endpoint, $success, $data) use ($callback){                            
+                            
+                            $this->recorderCaller = new \MgKurentoClient\RecorderEndpoint($this->pipeline);
+                            $this->recorderCaller->build(function($endpoint, $success, $data) use ($callback){
+                                
+                                //connections
+                                $this->callerWebRtcEP->connect($this->calleeWebRtcEP, function($success, $data) use ($callback){
+                                    $this->calleeWebRtcEP->connect($this->callerWebRtcEP, function($success, $data) use ($callback){
+                                        //connect recorders
+                                        $this->callerWebRtcEP->connect($this->recorderCaller, function($success, $data) use ($callback){
+                                            $this->calleeWebRtcEP->connect($this->recorderCallee, function($success, $data) use ($callback){
+                                                //external callback
+                                                $callback($this);                                                
+                                            });
+                                        });                                                                                
+                                    });                            
+                                });                                 
+                                
+
+                            }, array('uri' => self::RECORDING_PATH . $this->from . self::RECORDING_EXT));                            
+                            
+                        }, array('uri' => self::RECORDING_PATH . $this->to . self::RECORDING_EXT));                                               
                     });                                   
                 });
             });                       
         } catch (Exception $exc) {
+            echo $exc->getMessage();
             if($this->pipeline != null){
                 $this->pipeline->release(function(){});
             }
         }
     }
 
-	public function generateSdpAnswerForCaller($sdpOffer, callable $callback) {
-		return $this->callerWebRtcEP->processOffer($sdpOffer, $callback);
-	}
+    public function generateSdpAnswerForCaller($sdpOffer, callable $callback) {
+        return $this->callerWebRtcEP->processOffer($sdpOffer, $callback);
+    }
 
-	public function generateSdpAnswerForCallee($sdpOffer, callable $callback) {
-		return $this->calleeWebRtcEP->processOffer($sdpOffer, $callback);
-	}
+    public function generateSdpAnswerForCallee($sdpOffer, callable $callback) {
+        return $this->calleeWebRtcEP->processOffer($sdpOffer, $callback);
+    }
 
-	public function release() {
-		if ($this->pipeline != null) {
-			$this->pipeline->release(function(){});
-		}
-	}
+    public function release() {
+        if ($this->pipeline != null) {
+            $this->pipeline->release(function(){});
+        }
+    }
+    
+    public function record(callable $callback) {
+        $this->recorderCallee->record(function($success, $data) use ($callback){
+            $this->recorderCaller->record($callback);
+        });
+    }    
+
+}
+
+class PlayMediaPipeline {
+    /**
+     *
+     * @var \MgKurentoClient\Interfaces\MediaPipeline 
+     */
+    protected $pipeline = null;
+    /**
+     *
+     * @var \MgKurentoClient\Interfaces\WebRtcEndpoint
+     */
+    protected $webRtc = null;
+    /**
+     *
+     * @var \MgKurentoClient\Interfaces\PlayerEndpoint
+     */
+    protected $player = null;
+    
+    /**
+     *
+     * @var WebSocketTransportInterface 
+     */
+    protected $session = null;
+    
+    protected $user = '';
+    
+    
+    
+    public function __construct(\MgKurentoClient\KurentoClient $client, $user, WebSocketTransportInterface $session, callable $callback) {
+        try {
+            $this->user = $user;
+            $this->session = $session;
+            $this->pipeline = $client->createMediaPipeline(function($pipeline, $success, $data) use ($callback){
+                $this->webRtc = new \MgKurentoClient\WebRtcEndpoint($pipeline);
+                $this->webRtc->build(function($endpoint, $success, $data) use ($callback){
+                    
+                    $this->player = new \MgKurentoClient\PlayerEndpoint($this->pipeline);
+                    $this->player->build(function($endpoint, $success, $data) use ($callback){
+                        $this->player->connect($this->webRtc, function($success, $data) use ($callback){
+                            $this->player->addEndOfStreamListener(function(){
+                                echo "received end of stream event\n";
+                                $this->sendPlayEnd($this->session);
+                            }, function() use ($callback){
+                                $callback($this);
+                            });                            
+                        });                        
+                    }, array('uri' => CallMediaPipeline::RECORDING_PATH . $this->user . CallMediaPipeline::RECORDING_EXT));                                   
+                });
+            });                       
+        } catch (Exception $exc) {
+            echo $exc->getMessage();
+            if($this->pipeline != null){
+                $this->pipeline->release(function(){});
+            }
+        }
+    }
+    
+    public function play(callable $callback) {
+        $this->player->play($callback);
+    }    
+
+    public function generateSdpAnswer($sdpOffer, callable $callback) {
+        return $this->webRtc->processOffer($sdpOffer, $callback);
+    }
+
+    public function release() {
+        if ($this->pipeline != null) {
+            $this->pipeline->release(function(){});
+        }
+    }
+    
+    protected function sendPlayEnd(WebSocketTransportInterface $session){
+        $resultParams = array(
+            "id"        => 'playEnd'
+        );
+        $session->sendString(json_encode($resultParams, JSON_UNESCAPED_SLASHES));        
+    }    
 
 }
 
@@ -372,7 +515,6 @@ class UserSession {
     
 }
 
-
 $loop = \React\EventLoop\Factory::create();
 
 // Create a logger which writes everything to the STDOUT
@@ -381,7 +523,13 @@ $writer = new Zend\Log\Writer\Stream("php://output");
 $logger->addWriter($writer);
 
 // Create a WebSocket server
-$server = new WebSocketServer("tcp://0.0.0.0:8080", $loop, $logger);
+$server = new WebSocketServer("ssl://0.0.0.0:8443", $loop, $logger);
+$context = stream_context_create();
+//stream_context_set_option($context, 'ssl', 'local_cert', "fullchain1.pem");
+stream_context_set_option($context, 'ssl', 'local_cert', "one.pem");
+stream_context_set_option($context, 'ssl', 'allow_self_signed', true);
+stream_context_set_option($context, 'ssl', 'verify_peer', false);
+$server->setStreamContext($context);
 
 // Create a router which transfers all /chat connections to the ChatHandler class
 $router = new \Devristo\Phpws\Server\UriHandler\ClientRouter($server, $logger);
@@ -393,4 +541,3 @@ $server->bind();
 
 // Start the event loop
 $loop->run();
-

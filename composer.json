@@ -23,6 +23,7 @@
         }
     ],    
     "require": {
-        "devristo/phpws": "dev-master"
+        "devristo/phpws": "dev-master",
+        "cboden/ratchet": "^0.4.1"
     }
 }
