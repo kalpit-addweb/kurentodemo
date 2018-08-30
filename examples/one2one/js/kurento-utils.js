@@ -144,7 +144,7 @@ WebRtcPeer.prototype.start = function() {
 		console.log('ICE negotiation completed');
 
 		self.onsdpoffer(offerSdp, self);
-		// self.emit('sdpoffer', offerSdp);
+                self.emit('sdpoffer', offerSdp);
 
 		ended = true;
 	};
