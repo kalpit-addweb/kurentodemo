@@ -41,7 +41,7 @@ class CallHandler extends WebSocketUriHandler {
      * @var \MgKurentoClient\Interfaces\MediaPipeline
      */
     protected $pipeline = null;
-    protected $wsUrl = 'ws://127.0.0.1:8888/kurento';
+    protected $wsUrl = 'wss://localhost:8888/kurento';
     
     /**
      * 
@@ -381,7 +381,7 @@ $writer = new Zend\Log\Writer\Stream("php://output");
 $logger->addWriter($writer);
 
 // Create a WebSocket server
-$server = new WebSocketServer("tcp://0.0.0.0:8080", $loop, $logger);
+$server = new WebSocketServer("ssl://0.0.0.0:8443", $loop, $logger);
 $context = stream_context_create();
 //stream_context_set_option($context, 'ssl', 'local_cert', "fullchain1.pem");
 stream_context_set_option($context, 'ssl', 'local_cert', "one.pem");
