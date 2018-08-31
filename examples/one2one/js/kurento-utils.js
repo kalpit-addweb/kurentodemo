@@ -224,7 +224,7 @@ WebRtcPeer.prototype.processSdpAnswer = function(sdpAnswer) {
 	self.pc.setRemoteDescription(answer, function() {
 		if (self.remoteVideo) {
 			var stream = self.pc.getRemoteStreams()[0];
-			self.remoteVideo.srcObject = stream;
+			self.remoteVideo.srcObject = self.stream;
 		}
 	}, this.onerror);
 }
