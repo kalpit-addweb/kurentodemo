@@ -221,10 +221,10 @@ WebRtcPeer.prototype.processSdpAnswer = function(sdpAnswer) {
 
 	console.log('SDP answer received, setting remote description');
 	var self = this;
-	self.pc.setRemoteDescription(answer, function() {
+	this.pc.setRemoteDescription(answer, function() {
 		if (self.remoteVideo) {
-			var stream = self.pc.getRemoteStreams()[0];
-			self.remoteVideo.srcObject = self.stream;
+			var stream = this.pc.getRemoteStreams()[0];
+			self.remoteVideo.srcObject = stream;
 		}
 	}, this.onerror);
 }
