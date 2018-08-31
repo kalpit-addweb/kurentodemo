@@ -43,7 +43,6 @@ function setCallState(nextState) {
 		$('#call').attr('disabled', false);
 		$('#terminate').attr('disabled', true);
 		break;
-
 	case PROCESSING_CALL:
 		$('#call').attr('disabled', true);
 		$('#terminate').attr('disabled', true);
