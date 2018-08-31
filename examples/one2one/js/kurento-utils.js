@@ -223,8 +223,8 @@ WebRtcPeer.prototype.processSdpAnswer = function(sdpAnswer) {
 	var self = this;
 	self.pc.setRemoteDescription(answer, function() {
 		if (self.remoteVideo) {
-			var stream = self.pc.getRemoteStreams()[0];
-			self.remoteVideo.srcObject = self.stream;
+			var stream = this.peerConnection.getRemoteStreams()[0];
+			self.remoteVideo.srcObject = stream;
 		}
 	}, this.onerror);
 }
