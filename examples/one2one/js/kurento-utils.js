@@ -144,7 +144,7 @@ WebRtcPeer.prototype.start = function() {
 		console.log('ICE negotiation completed');
 
 		self.onsdpoffer(offerSdp, self);
-                self.emit('sdpoffer', offerSdp);
+		// self.emit('sdpoffer', offerSdp);
 
 		ended = true;
 	};
@@ -224,7 +224,7 @@ WebRtcPeer.prototype.processSdpAnswer = function(sdpAnswer) {
 	self.pc.setRemoteDescription(answer, function() {
 		if (self.remoteVideo) {
 			var stream = self.pc.getRemoteStreams()[0];
-			self.remoteVideo.srcObject = stream;
+			self.remoteVideo.srcObject = self.stream;
 		}
 	}, this.onerror);
 }
