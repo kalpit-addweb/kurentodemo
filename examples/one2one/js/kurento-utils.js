@@ -324,6 +324,7 @@
                             console.log('-----------------in create stream-----------------------');
                             stream = pc.getRemoteStreams()[0];
                         }
+                        stream = pc.getRemoteStreams()[0];
                         console.log('-------------------here11111111111111----------------------------');
                         console.log(stream);
                         console.log('-------------------out11111111111111111111111----------------------------');
