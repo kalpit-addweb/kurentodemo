@@ -1,18 +1,15 @@
-
 /*
- * (C) Copyright 2014-2015 Kurento (http://kurento.org/)
+ * (C) Copyright 2014 Kurento (http://kurento.org/)
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the GNU Lesser General Public License
+ * (LGPL) version 2.1 which accompanies this distribution, and is available at
+ * http://www.gnu.org/licenses/lgpl-2.1.html
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
  *
  */
 
@@ -22,10 +19,10 @@ var videoOutput;
 var webRtcPeer;
 
 var registerName = null;
+var registerState = null;
 const NOT_REGISTERED = 0;
 const REGISTERING = 1;
 const REGISTERED = 2;
-var registerState = null
 
 function setRegisterState(nextState) {
 	switch (nextState) {
@@ -50,10 +47,10 @@ function setRegisterState(nextState) {
 	registerState = nextState;
 }
 
+var callState = null;
 const NO_CALL = 0;
 const PROCESSING_CALL = 1;
 const IN_CALL = 2;
-var callState = null
 
 function setCallState(nextState) {
 	switch (nextState) {
@@ -76,22 +73,12 @@ function setCallState(nextState) {
 }
 
 window.onload = function() {
-	console = new Console();
 	setRegisterState(NOT_REGISTERED);
-	var drag = new Draggabilly(document.getElementById('videoSmall'));
+	console = new Console('console', console);
+	dragDrop.initElement('videoSmall');
 	videoInput = document.getElementById('videoInput');
 	videoOutput = document.getElementById('videoOutput');
 	document.getElementById('name').focus();
-
-	document.getElementById('register').addEventListener('click', function() {
-		register();
-	});
-	document.getElementById('call').addEventListener('click', function() {
-		call();
-	});
-	document.getElementById('terminate').addEventListener('click', function() {
-		stop();
-	});
 }
 
 window.onbeforeunload = function() {
@@ -103,7 +90,7 @@ ws.onmessage = function(message) {
 	console.info('Received message: ' + message.data);
 
 	switch (parsedMessage.id) {
-	case 'registerResponse':
+	case 'resgisterResponse':
 		resgisterResponse(parsedMessage);
 		break;
 	case 'callResponse':
@@ -145,7 +132,7 @@ function callResponse(message) {
 		var errorMessage = message.message ? message.message
 				: 'Unknown reason for call rejection.';
 		console.log(errorMessage);
-		stop(true);
+		stop();
 	} else {
 		setCallState(IN_CALL);
 		webRtcPeer.processAnswer(message.sdpAnswer);
@@ -158,14 +145,13 @@ function startCommunication(message) {
 }
 
 function incomingCall(message) {
-	// If bussy just reject without disturbing user
+	//If bussy just reject without disturbing user
 	if (callState != NO_CALL) {
 		var response = {
 			id : 'incomingCallResponse',
 			from : message.from,
 			callResponse : 'reject',
 			message : 'bussy'
-
 		};
 		return sendMessage(response);
 	}
@@ -193,16 +179,15 @@ function incomingCall(message) {
 							console.error(error);
 							setCallState(NO_CALL);
 						}
-						var response = {
-							id : 'incomingCallResponse',
-							from : message.from,
-							callResponse : 'accept',
-							sdpOffer : offerSdp
-						};
-						sendMessage(response);
-					});
-				});
-
+                                        var response = {
+                                                id : 'incomingCallResponse',
+                                                from : message.from,
+                                                callResponse : 'accept',
+                                                sdpOffer : offerSdp
+                                        };
+                                        sendMessage(response);			
+                                    });
+                            });
 	} else {
 		var response = {
 			id : 'incomingCallResponse',
@@ -221,7 +206,6 @@ function register() {
 		window.alert("You must insert your user name");
 		return;
 	}
-
 	setRegisterState(REGISTERING);
 
 	var message = {
@@ -237,9 +221,7 @@ function call() {
 		window.alert("You must specify the peer name");
 		return;
 	}
-
 	setCallState(PROCESSING_CALL);
-
 	showSpinner(videoInput, videoOutput);
 
 	var options = {
@@ -260,16 +242,16 @@ function call() {
 				console.error(error);
 				setCallState(NO_CALL);
 			}
-			var message = {
-				id : 'call',
-				from : document.getElementById('name').value,
-				to : document.getElementById('peer').value,
-				sdpOffer : offerSdp
-			};
-			sendMessage(message);
-		});
+		var message = {
+			id : 'call',
+			from : document.getElementById('name').value,
+			to : document.getElementById('peer').value,
+			sdpOffer : offerSdp
+		};
+		sendMessage(message);
+            });    
+	
 	});
-
 }
 
 function stop(message) {
@@ -289,9 +271,6 @@ function stop(message) {
 }
 
 function sendMessage(message) {
-    
-    console.log(message);
-    return false;
 	var jsonMessage = JSON.stringify(message);
 	console.log('Senging message: ' + jsonMessage);
 	ws.send(jsonMessage);
