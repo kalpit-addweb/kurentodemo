@@ -224,14 +224,14 @@ WebRtcPeer.prototype.processSdpAnswer = function(sdpAnswer) {
 	self.pc.setRemoteDescription(answer, function() {
 		if (self.remoteVideo) {
 //			var stream = this.RTCPeerConnection.prototype.getRemoteStreams()[0];
-			var stream = this.RTCPeerConnection.getRemoteStreams()[0];
+			var stream = this.peerConnection.getRemoteStreams()[0];
 			self.remoteVideo.srcObject = stream;
 		}
 	}, this.onerror);
 }
 
 /**
- * @description Default ICE server (stun:stun.l.google.com:19302).peerConnectionch
+ * @description Default ICE server (stun:stun.l.google.com:19302).
  * 
  * @alias module:kurentoUtils.WebRtcPeer.prototype.server
  * 
