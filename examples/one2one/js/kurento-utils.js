@@ -316,20 +316,12 @@
                     return pc.remoteDescription;
                 };
                 function setRemoteVideo(stream) {
-                    console.log('-------------------here----------------------------');
-                    console.log(stream);
-                    console.log('-------------------out----------------------------');                    
                     if (remoteVideo) {
                         if (!stream) {
-                            console.log('-----------------in create stream-----------------------');
                             stream = pc.getRemoteStreams()[0];
                         }
-                        stream = pc.getRemoteStreams()[0];
-                        console.log('-------------------here11111111111111----------------------------');
-                        console.log(stream);
-                        console.log('-------------------out11111111111111111111111----------------------------');
                         remoteVideo.pause();
-                        remoteVideo.srcObject = stream;
+                        remoteVideo.srcObject = self.stream;
                         remoteVideo.load();
                     }
                 }
