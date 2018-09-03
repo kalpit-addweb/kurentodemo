@@ -231,7 +231,7 @@ WebRtcPeer.prototype.processSdpAnswer = function(sdpAnswer) {
 }
 
 /**
- * @description Default ICE server (stun:stun.l.google.com:19302).
+ * @description Default ICE server (stun:stun.l.google.com:19302).peerConnectionch
  * 
  * @alias module:kurentoUtils.WebRtcPeer.prototype.server
  * 
