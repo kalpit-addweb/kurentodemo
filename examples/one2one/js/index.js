@@ -289,6 +289,9 @@ function stop(message) {
 }
 
 function sendMessage(message) {
+    
+    console.log(message);
+    return false;
 	var jsonMessage = JSON.stringify(message);
 	console.log('Senging message: ' + jsonMessage);
 	ws.send(jsonMessage);
