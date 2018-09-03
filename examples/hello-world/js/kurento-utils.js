@@ -296,7 +296,7 @@ WebRtcPeer.start = function(mode, localVideo, remoteVideo, onSdp, onerror,
 		var constraints = mediaConstraints ? mediaConstraints
 				: wp.userMediaConstraints;
 
-		getUserMedia(constraints, function(userStream) {
+		navigator.getUserMedia(constraints, function(userStream) {
 			wp.stream = userStream;
 			wp.start();
 		}, wp.onerror);

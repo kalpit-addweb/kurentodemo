@@ -12,7 +12,7 @@
  * Lesser General Public License for more details.
  *
  */
-
+//var ws = new WebSocket('wss://' + location.host + ':8443');
 var webRtcPeer;
 var videoInput;
 var videoOutput;

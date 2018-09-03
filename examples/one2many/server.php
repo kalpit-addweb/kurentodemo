@@ -194,7 +194,13 @@ $writer = new Zend\Log\Writer\Stream("php://output");
 $logger->addWriter($writer);
 
 // Create a WebSocket server
-$server = new WebSocketServer("tcp://0.0.0.0:8080", $loop, $logger);
+$server = new WebSocketServer("ssl://0.0.0.0:8443", $loop, $logger);
+$context = stream_context_create();
+//stream_context_set_option($context, 'ssl', 'local_cert', "fullchain1.pem");
+stream_context_set_option($context, 'ssl', 'local_cert', "one.pem");
+stream_context_set_option($context, 'ssl', 'allow_self_signed', true);
+stream_context_set_option($context, 'ssl', 'verify_peer', false);
+$server->setStreamContext($context);
 
 // Create a router which transfers all /chat connections to the ChatHandler class
 $router = new \Devristo\Phpws\Server\UriHandler\ClientRouter($server, $logger);
