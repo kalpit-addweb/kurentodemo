@@ -317,6 +317,10 @@
                 };
                 function setRemoteVideo(stream) {
                     console.log('-------------------here----------------------------');
+                    console.log(stream);
+                    console.log('-------------------out----------------------------');
+                    console.log(remoteVideo);
+                     console.log('-------------------out22222222----------------------------');
                     if (remoteVideo) {
                         if (!stream) {
                             stream = pc.getRemoteStreams()[0];
