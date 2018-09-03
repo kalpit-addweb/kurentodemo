@@ -13,8 +13,7 @@
  *
  */
 
-var ws = new WebSocket('wss://' + location.host + ':8443/call');
-
+var ws = new WebSocket('wss://' + location.host + ':8080/call');
 var videoInput;
 var videoOutput;
 var webRtcPeer;
@@ -213,7 +212,7 @@ function call() {
 		return;
 	}
 	setCallState(PROCESSING_CALL);
-        showSpinner(videoInput, videoOutput);
+	showSpinner(videoInput, videoOutput);
 
 	webRtcPeer = kurentoUtils.WebRtcPeer.startSendRecv(videoInput, videoOutput, function(offerSdp) {
 		console.log('Invoking SDP offer callback function');
