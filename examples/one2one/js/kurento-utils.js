@@ -316,6 +316,7 @@
                     return pc.remoteDescription;
                 };
                 function setRemoteVideo(stream) {
+                    console.log('-------------------here----------------------------');
                     if (remoteVideo) {
                         if (!stream) {
                             stream = pc.getRemoteStreams()[0];
