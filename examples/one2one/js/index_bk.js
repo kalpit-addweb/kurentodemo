@@ -1,18 +1,15 @@
-
 /*
- * (C) Copyright 2014-2015 Kurento (http://kurento.org/)
+ * (C) Copyright 2014 Kurento (http://kurento.org/)
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the GNU Lesser General Public License
+ * (LGPL) version 2.1 which accompanies this distribution, and is available at
+ * http://www.gnu.org/licenses/lgpl-2.1.html
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
  *
  */
 
@@ -22,10 +19,10 @@ var videoOutput;
 var webRtcPeer;
 
 var registerName = null;
+var registerState = null;
 const NOT_REGISTERED = 0;
 const REGISTERING = 1;
 const REGISTERED = 2;
-var registerState = null
 
 function setRegisterState(nextState) {
 	switch (nextState) {
@@ -34,26 +31,23 @@ function setRegisterState(nextState) {
 		$('#call').attr('disabled', true);
 		$('#terminate').attr('disabled', true);
 		break;
-
 	case REGISTERING:
 		$('#register').attr('disabled', true);
 		break;
-
 	case REGISTERED:
 		$('#register').attr('disabled', true);
 		setCallState(NO_CALL);
 		break;
-
 	default:
 		return;
 	}
 	registerState = nextState;
 }
 
+var callState = null;
 const NO_CALL = 0;
 const PROCESSING_CALL = 1;
 const IN_CALL = 2;
-var callState = null
 
 function setCallState(nextState) {
 	switch (nextState) {
@@ -76,22 +70,12 @@ function setCallState(nextState) {
 }
 
 window.onload = function() {
-	console = new Console();
 	setRegisterState(NOT_REGISTERED);
-	var drag = new Draggabilly(document.getElementById('videoSmall'));
+	console = new Console('console', console);
+	dragDrop.initElement('videoSmall');
 	videoInput = document.getElementById('videoInput');
 	videoOutput = document.getElementById('videoOutput');
 	document.getElementById('name').focus();
-
-	document.getElementById('register').addEventListener('click', function() {
-		register();
-	});
-	document.getElementById('call').addEventListener('click', function() {
-		call();
-	});
-	document.getElementById('terminate').addEventListener('click', function() {
-		stop();
-	});
 }
 
 window.onbeforeunload = function() {
@@ -103,7 +87,7 @@ ws.onmessage = function(message) {
 	console.info('Received message: ' + message.data);
 
 	switch (parsedMessage.id) {
-	case 'registerResponse':
+	case 'resgisterResponse':
 		resgisterResponse(parsedMessage);
 		break;
 	case 'callResponse':
@@ -119,9 +103,6 @@ ws.onmessage = function(message) {
 		console.info("Communication ended by remote peer");
 		stop(true);
 		break;
-	case 'iceCandidate':
-		webRtcPeer.addIceCandidate(parsedMessage.candidate)
-		break;
 	default:
 		console.error('Unrecognized message', parsedMessage);
 	}
@@ -132,8 +113,7 @@ function resgisterResponse(message) {
 		setRegisterState(REGISTERED);
 	} else {
 		setRegisterState(NOT_REGISTERED);
-		var errorMessage = message.message ? message.message
-				: 'Unknown reason for register rejection.';
+		var errorMessage = message.message ? message.message : 'Unknown reason for register rejection.';
 		console.log(errorMessage);
 		alert('Error registering user. See console for further information.');
 	}
@@ -142,30 +122,28 @@ function resgisterResponse(message) {
 function callResponse(message) {
 	if (message.response != 'accepted') {
 		console.info('Call not accepted by peer. Closing call');
-		var errorMessage = message.message ? message.message
-				: 'Unknown reason for call rejection.';
+		var errorMessage = message.message ? message.message : 'Unknown reason for call rejection.';
 		console.log(errorMessage);
-		stop(true);
+		stop();
 	} else {
 		setCallState(IN_CALL);
-		webRtcPeer.processAnswer(message.sdpAnswer);
+		webRtcPeer.processSdpAnswer(message.sdpAnswer);
 	}
 }
 
 function startCommunication(message) {
 	setCallState(IN_CALL);
-	webRtcPeer.processAnswer(message.sdpAnswer);
+	webRtcPeer.processSdpAnswer(message.sdpAnswer);
 }
 
 function incomingCall(message) {
-	// If bussy just reject without disturbing user
+	//If bussy just reject without disturbing user
 	if (callState != NO_CALL) {
 		var response = {
 			id : 'incomingCallResponse',
 			from : message.from,
 			callResponse : 'reject',
 			message : 'bussy'
-
 		};
 		return sendMessage(response);
 	}
@@ -174,35 +152,17 @@ function incomingCall(message) {
 	if (confirm('User ' + message.from
 			+ ' is calling you. Do you accept the call?')) {
 		showSpinner(videoInput, videoOutput);
-
-		var options = {
-			localVideo : videoInput,
-			remoteVideo : videoOutput,
-			onicecandidate : onIceCandidate
-		}
-
-		webRtcPeer = kurentoUtils.WebRtcPeer.WebRtcPeerSendrecv(options,
-				function(error) {
-					if (error) {
-						console.error(error);
-						setCallState(NO_CALL);
-					}
-
-					this.generateOffer(function(error, offerSdp) {
-						if (error) {
-							console.error(error);
-							setCallState(NO_CALL);
-						}
-						var response = {
-							id : 'incomingCallResponse',
-							from : message.from,
-							callResponse : 'accept',
-							sdpOffer : offerSdp
-						};
-						sendMessage(response);
-					});
-				});
-
+		webRtcPeer = kurentoUtils.WebRtcPeer.startSendRecv(videoInput, videoOutput, function(offerSdp) {
+			var response = {
+				id : 'incomingCallResponse',
+				from : message.from,
+				callResponse : 'accept',
+				sdpOffer : offerSdp
+			};
+			sendMessage(response);
+			}, function(error) {
+				setCallState(NO_CALL);
+			});
 	} else {
 		var response = {
 			id : 'incomingCallResponse',
@@ -211,7 +171,7 @@ function incomingCall(message) {
 			message : 'user declined'
 		};
 		sendMessage(response);
-		stop(true);
+		stop();
 	}
 }
 
@@ -221,7 +181,6 @@ function register() {
 		window.alert("You must insert your user name");
 		return;
 	}
-
 	setRegisterState(REGISTERING);
 
 	var message = {
@@ -237,39 +196,22 @@ function call() {
 		window.alert("You must specify the peer name");
 		return;
 	}
-
 	setCallState(PROCESSING_CALL);
-
 	showSpinner(videoInput, videoOutput);
 
-	var options = {
-		localVideo : videoInput,
-		remoteVideo : videoOutput,
-		onicecandidate : onIceCandidate
-	}
-
-	webRtcPeer = kurentoUtils.WebRtcPeer.WebRtcPeerSendrecv(options, function(
-			error) {
-		if (error) {
-			console.error(error);
-			setCallState(NO_CALL);
-		}
-
-		this.generateOffer(function(error, offerSdp) {
-			if (error) {
-				console.error(error);
-				setCallState(NO_CALL);
-			}
-			var message = {
-				id : 'call',
-				from : document.getElementById('name').value,
-				to : document.getElementById('peer').value,
-				sdpOffer : offerSdp
-			};
-			sendMessage(message);
-		});
+	webRtcPeer = kurentoUtils.WebRtcPeer.startSendRecv(videoInput, videoOutput, function(offerSdp) {
+		console.log('Invoking SDP offer callback function');
+		var message = {
+			id : 'call',
+			from : document.getElementById('name').value,
+			to : document.getElementById('peer').value,
+			sdpOffer : offerSdp
+		};
+		sendMessage(message);
+	}, function(error) {
+		console.log(error);
+		setCallState(NO_CALL);
 	});
-
 }
 
 function stop(message) {
@@ -292,16 +234,6 @@ function sendMessage(message) {
 	var jsonMessage = JSON.stringify(message);
 	console.log('Senging message: ' + jsonMessage);
 	ws.send(jsonMessage);
-}
-
-function onIceCandidate(candidate) {
-	console.log('Local candidate' + JSON.stringify(candidate));
-
-	var message = {
-		id : 'onIceCandidate',
-		candidate : candidate
-	}
-	sendMessage(message);
 }
 
 function showSpinner() {
