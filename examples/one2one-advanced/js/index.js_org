@@ -14,6 +14,7 @@
  */
 
 var ws = new WebSocket('wss://' + location.host + ':8443/call');
+
 var videoInput;
 var videoOutput;
 var webRtcPeer;
@@ -31,16 +32,13 @@ function setRegisterState(nextState) {
 		$('#call').attr('disabled', true);
 		$('#terminate').attr('disabled', true);
 		break;
-
 	case REGISTERING:
 		$('#register').attr('disabled', true);
 		break;
-
 	case REGISTERED:
 		$('#register').attr('disabled', true);
 		setCallState(NO_CALL);
 		break;
-
 	default:
 		return;
 	}
@@ -75,7 +73,7 @@ function setCallState(nextState) {
 window.onload = function() {
 	setRegisterState(NOT_REGISTERED);
 	console = new Console('console', console);
-        var drag = new Draggabilly(document.getElementById('videoSmall'));
+	dragDrop.initElement('videoSmall');
 	videoInput = document.getElementById('videoInput');
 	videoOutput = document.getElementById('videoOutput');
 	document.getElementById('name').focus();
@@ -106,8 +104,11 @@ ws.onmessage = function(message) {
 		console.info("Communication ended by remote peer");
 		stop(true);
 		break;
-	case 'iceCandidate':
-		webRtcPeer.addIceCandidate(parsedMessage.candidate)
+	case 'playResponse':
+		playResponse(parsedMessage);
+		break;
+	case 'playEnd':
+		stop();
 		break;
 	default:
 		console.error('Unrecognized message', parsedMessage);
@@ -119,8 +120,7 @@ function resgisterResponse(message) {
 		setRegisterState(REGISTERED);
 	} else {
 		setRegisterState(NOT_REGISTERED);
-		var errorMessage = message.message ? message.message
-				: 'Unknown reason for register rejection.';
+		var errorMessage = message.message ? message.message : 'Unknown reason for register rejection.';
 		console.log(errorMessage);
 		alert('Error registering user. See console for further information.');
 	}
@@ -129,19 +129,27 @@ function resgisterResponse(message) {
 function callResponse(message) {
 	if (message.response != 'accepted') {
 		console.info('Call not accepted by peer. Closing call');
-		var errorMessage = message.message ? message.message
-				: 'Unknown reason for call rejection.';
+		var errorMessage = message.message ? message.message : 'Unknown reason for call rejection.';
 		console.log(errorMessage);
 		stop();
 	} else {
 		setCallState(IN_CALL);
-		webRtcPeer.processAnswer(message.sdpAnswer);
+		webRtcPeer.processSdpAnswer(message.sdpAnswer);
 	}
 }
 
 function startCommunication(message) {
 	setCallState(IN_CALL);
-	webRtcPeer.processAnswer(message.sdpAnswer);
+	webRtcPeer.processSdpAnswer(message.sdpAnswer);
+}
+
+function playResponse(message) {
+	if (message.response != 'accepted') {
+		alert('Play request rejected');
+	} else {
+		webRtcPeer.processSdpAnswer(message.sdpAnswer);
+	}
+	hideSpinner(videoOutput);
 }
 
 function incomingCall(message) {
@@ -160,34 +168,17 @@ function incomingCall(message) {
 	if (confirm('User ' + message.from
 			+ ' is calling you. Do you accept the call?')) {
 		showSpinner(videoInput, videoOutput);
-
-		var options = {
-			localVideo : videoInput,
-			remoteVideo : videoOutput,
-			onicecandidate : onIceCandidate
-		}
-
-		webRtcPeer = kurentoUtils.WebRtcPeer.WebRtcPeerSendrecv(options,
-				function(error) {
-					if (error) {
-						console.error(error);
-						setCallState(NO_CALL);
-					}
-
-					this.generateOffer(function(error, offerSdp) {
-						if (error) {
-							console.error(error);
-							setCallState(NO_CALL);
-						}
-                                        var response = {
-                                                id : 'incomingCallResponse',
-                                                from : message.from,
-                                                callResponse : 'accept',
-                                                sdpOffer : offerSdp
-                                        };
-                                        sendMessage(response);			
-                                    });
-                            });
+		webRtcPeer = kurentoUtils.WebRtcPeer.startSendRecv(videoInput, videoOutput, function(offerSdp) {
+			var response = {
+				id : 'incomingCallResponse',
+				from : message.from,
+				callResponse : 'accept',
+				sdpOffer : offerSdp
+			};
+			sendMessage(response);
+			}, function(error) {
+				setCallState(NO_CALL);
+			});
 	} else {
 		var response = {
 			id : 'incomingCallResponse',
@@ -196,7 +187,7 @@ function incomingCall(message) {
 			message : 'user declined'
 		};
 		sendMessage(response);
-		stop(true);
+		stop();
 	}
 }
 
@@ -222,25 +213,10 @@ function call() {
 		return;
 	}
 	setCallState(PROCESSING_CALL);
-	showSpinner(videoInput, videoOutput);
+        showSpinner(videoInput, videoOutput);
 
-	var options = {
-		localVideo : videoInput,
-	remoteVideo : videoOutput,
-		onicecandidate : onIceCandidate
-	}
-
-	webRtcPeer = kurentoUtils.WebRtcPeer.WebRtcPeerSendrecv(options, function(error) {
-		if (error) {
-			console.error(error);
-			setCallState(NO_CALL);
-		}
-
-		this.generateOffer(function(error, offerSdp) {
-			if (error) {
-				console.error(error);
-				setCallState(NO_CALL);
-			}
+	webRtcPeer = kurentoUtils.WebRtcPeer.startSendRecv(videoInput, videoOutput, function(offerSdp) {
+		console.log('Invoking SDP offer callback function');
 		var message = {
 			id : 'call',
 			from : document.getElementById('name').value,
@@ -248,8 +224,24 @@ function call() {
 			sdpOffer : offerSdp
 		};
 		sendMessage(message);
-            });    
-	
+	}, function(error) {
+		console.log(error);
+		setCallState(NO_CALL);
+	});
+}
+
+function play() {
+	document.getElementById('videoSmall').style.display = 'none';
+	showSpinner(videoOutput);
+
+	webRtcPeer = kurentoUtils.WebRtcPeer.startRecvOnly(videoOutput, function(offerSdp) {
+		console.log('Invoking SDP offer callback function');
+		var message = {
+			id : 'play',
+			user : document.getElementById('peer').value,
+			sdpOffer : offerSdp
+		};
+		sendMessage(message);
 	});
 }
 
@@ -267,22 +259,13 @@ function stop(message) {
 		}
 	}
 	hideSpinner(videoInput, videoOutput);
+	document.getElementById('videoSmall').style.display = 'block';
 }
 
 function sendMessage(message) {
 	var jsonMessage = JSON.stringify(message);
 	console.log('Senging message: ' + jsonMessage);
 	ws.send(jsonMessage);
-}
-
-function onIceCandidate(candidate) {
-	console.log('Local candidate' + JSON.stringify(candidate));
-
-	var message = {
-		id : 'onIceCandidate',
-		candidate : candidate
-	}
-	sendMessage(message);
 }
 
 function showSpinner() {
@@ -307,4 +290,3 @@ $(document).delegate('*[data-toggle="lightbox"]', 'click', function(event) {
 	event.preventDefault();
 	$(this).ekkoLightbox();
 });
-

@@ -226,11 +226,12 @@ function call() {
 
 	var options = {
 		localVideo : videoInput,
-	remoteVideo : videoOutput,
+		remoteVideo : videoOutput,
 		onicecandidate : onIceCandidate
 	}
 
-	webRtcPeer = kurentoUtils.WebRtcPeer.WebRtcPeerSendrecv(options, function(error) {
+	webRtcPeer = kurentoUtils.WebRtcPeer.WebRtcPeerSendrecv(options, function(
+			error) {
 		if (error) {
 			console.error(error);
 			setCallState(NO_CALL);

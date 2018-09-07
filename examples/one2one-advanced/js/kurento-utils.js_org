@@ -105,7 +105,6 @@ WebRtcPeer.prototype.start = function() {
 		this.localVideo.muted = true;
 	}
 
-
 	if (this.stream) {
 		pc.addStream(this.stream);
 	}
@@ -145,7 +144,7 @@ WebRtcPeer.prototype.start = function() {
 		console.log('ICE negotiation completed');
 
 		self.onsdpoffer(offerSdp, self);
-		//self.emit('sdpoffer', offerSdp);
+	        //self.emit('sdpoffer', offerSdp);
 
 		ended = true;
 	};
@@ -170,9 +169,9 @@ WebRtcPeer.prototype.dispose = function() {
 		this.pc.close();
 
 	if (this.localVideo)
-		this.localVideo.src = null;
+		this.localVideo.src = '';
 	if (this.remoteVideo)
-		this.remoteVideo.src = null;
+		this.remoteVideo.src = '';
 
 	if (this.stream) {
 		this.stream.getAudioTracks().forEach(function(track) {
@@ -215,24 +214,26 @@ WebRtcPeer.prototype.userMediaConstraints = {
  * 
  */
 WebRtcPeer.prototype.processSdpAnswer = function(sdpAnswer) {
-        var answer = new RTCSessionDescription({
-                type : 'answer',
-                sdp : sdpAnswer,
-        });
+	var answer = new RTCSessionDescription({
+		type : 'answer',
+		sdp : sdpAnswer,
+	});
 
-        console.log('SDP answer received, setting remote description');
-        var self = this;
-        self.pc.setRemoteDescription(answer, function() {
-                if (self.remoteVideo) {
-			self.remoteVideo.pause();
-			 var stream = self.pc.getRemoteStreams()[0];
-			 //self.remoteVideo.setAttribute("srcObject",stream);
-			  self.remoteVideo.srcObject = stream;
-                         console.log('remoteVideo start',stream);
-			 self.remoteVideo.load();
-                }
-        }, this.onerror);
+	console.log('SDP answer received, setting remote description');
+	var self = this;
+	self.pc.setRemoteDescription(answer, function() {
+		if (self.remoteVideo) {
+			    var stream = self.pc.getRemoteStreams()[0];
+		            var url = stream ? URL.createObjectURL(stream) : '';
+		            self.remoteVideo.pause();
+		            self.remoteVideo.src = url;
+		            self.remoteVideo.load();
+		            console.log('Remote URL:'+  url);
+		}
+
+	}, this.onerror);
 }
+
 
 /**
  * @description Default ICE server (stun:stun.l.google.com:19302).
@@ -298,13 +299,14 @@ WebRtcPeer.start = function(mode, localVideo, remoteVideo, onSdp, onerror,
 			videoStream, audioStream);
 
 	if (wp.mode !== 'recv' && !wp.stream) {
-		var constraints = mediaConstraints ? mediaConstraints
-				: wp.userMediaConstraints;
+		var constraints = mediaConstraints ? mediaConstraints 
+				  : wp.userMediaConstraints;
+          
+               navigator.mediaDevices.getUserMedia(constraints)
+                .then(userStream => { wp.stream = userStream; wp.start();   
+                })
 
-		navigator.getUserMedia(constraints, function(userStream) {
-			wp.stream = userStream;
-			wp.start();
-		}, wp.onerror);
+     	//	navigator.getUserMedia(constraints, function(userStream) { wp.stream = userStream; wp.start(); }, wp.onerror);
 	} else {
 		wp.start();
 	}
